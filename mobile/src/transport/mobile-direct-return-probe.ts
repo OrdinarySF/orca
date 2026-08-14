@@ -24,6 +24,7 @@ export class DirectReturnProbe {
     },
     private readonly hooks: {
       hysteresis: MobileEndpointHysteresis
+      refreshDirectEndpoints: () => Promise<void>
       canSchedule: () => boolean
       canAttempt: () => boolean
       beginOperation: () => void
@@ -73,6 +74,7 @@ export class DirectReturnProbe {
     this.hooks.beginOperation()
     let successful: Awaited<ReturnType<typeof openAuthenticatedDirectEndpoint>> = null
     try {
+      await this.hooks.refreshDirectEndpoints()
       successful = await openAuthenticatedDirectEndpoint(
         this.deps.openDirect,
         12_000,

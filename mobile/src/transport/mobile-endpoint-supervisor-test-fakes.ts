@@ -211,6 +211,8 @@ export function dependencies(
     readBundle: vi.fn(async () => bundle),
     writeBundle: vi.fn(async () => {}),
     setRelayRouting: vi.fn(async () => {}),
+    getHost: vi.fn(() => host),
+    saveHost: vi.fn(async () => {}),
     directPath: 'lan',
     now: Date.now,
     randomBytes: (length) => new Uint8Array(length).fill(1),

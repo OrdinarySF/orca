@@ -9,7 +9,7 @@ import {
   readMobileRelayCredentialBundle,
   writeMobileRelayCredentialBundle
 } from './mobile-relay-credential-bundle'
-import { setRelayRouting } from './host-store'
+import { savePairedHost, setRelayRouting } from './host-store'
 import { upgradeDirectMobileRelay } from './mobile-relay-direct-upgrade'
 import { directPathForEndpoint } from './mobile-direct-endpoint-probe'
 import { MobileRelayDirectUpgradeController } from './mobile-relay-direct-upgrade-controller'
@@ -88,8 +88,12 @@ function createSupervisor(
   relay: MobileRelayEndpoint,
   onLog: ConnectionLogSink
 ): MobileEndpointSupervisor {
+  // Why: cafe DHCP / new NIC updates pair-time LAN via pairing.getDirectEndpoints;
+  // openDirect must dial the refreshed primary, so host is a mutable closure.
+  let currentHost = host
   return new MobileEndpointSupervisor(logical, host.id, relay, {
-    openDirect: () => connect(host.endpoint, host.deviceToken, host.publicKeyB64, { onLog }),
+    openDirect: () =>
+      connect(currentHost.endpoint, currentHost.deviceToken, currentHost.publicKeyB64, { onLog }),
     directPath: directPathForEndpoint(host.endpoint),
     openRelay: (relay, credential, confirmReqId, onHostCloseReason) =>
       connectMobileRelayRpcSession({
@@ -97,8 +101,8 @@ function createSupervisor(
         resumeToken: credential.token,
         resumeCredentialVersion: credential.version,
         resumeConfirmReqId: confirmReqId,
-        deviceToken: host.deviceToken,
-        desktopPublicKeyB64: host.publicKeyB64,
+        deviceToken: currentHost.deviceToken,
+        desktopPublicKeyB64: currentHost.publicKeyB64,
         onHostCloseReason,
         onLog
       }),
@@ -106,6 +110,11 @@ function createSupervisor(
     readBundle: readMobileRelayCredentialBundle,
     writeBundle: writeMobileRelayCredentialBundle,
     setRelayRouting,
+    getHost: () => currentHost,
+    saveHost: async (next) => {
+      currentHost = next
+      await savePairedHost(next)
+    },
     onLog,
     now: Date.now,
     randomBytes: ExpoCrypto.getRandomBytes,
