@@ -10,7 +10,7 @@ import type { ConnectionLogSink, HostProfile } from './types'
 
 export type MobileEndpointSupervisorDependencies = {
   openDirect: () => RpcClient
-  directPath: Exclude<MobileConnectionPath, 'relay'>
+  directPath: () => Exclude<MobileConnectionPath, 'relay'>
   openRelay: (
     relay: MobileRelayEndpoint,
     credential: { token: string; version: number },

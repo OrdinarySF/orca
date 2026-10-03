@@ -228,7 +228,7 @@ function dependencies(
     setRelayRouting: vi.fn(async () => {}),
     getHost: vi.fn(() => host),
     saveHost: vi.fn(async () => {}),
-    directPath: 'lan',
+    directPath: () => 'lan',
     now: Date.now,
     randomBytes: (length: number) => new Uint8Array(length),
     setTimer: (handler, ms) => setTimeout(handler, ms),

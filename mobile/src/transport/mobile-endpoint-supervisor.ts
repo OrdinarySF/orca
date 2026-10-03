@@ -91,8 +91,7 @@ export class MobileEndpointSupervisor {
     })
     this.host = dependencies.getHost()
     this.directEndpointRefresh = new HostDirectEndpointRefresh(async (next) => {
-      await dependencies.saveHost(next)
-      this.host = next
+      await dependencies.saveHost((this.host = next))
     })
     this.sessionEstablisher = new MobileRelaySessionEstablisher({
       logical,
@@ -209,6 +208,7 @@ export class MobileEndpointSupervisor {
 
   stop(): void {
     this.stopped = true
+    this.directEndpointRefresh.invalidate() // drop late refresh saves after host removal
     this.directProbe.stop()
     this.unsubscribeState?.()
     this.unsubscribeState = null
@@ -357,5 +357,4 @@ export class MobileEndpointSupervisor {
       }
     }
   }
-
 }

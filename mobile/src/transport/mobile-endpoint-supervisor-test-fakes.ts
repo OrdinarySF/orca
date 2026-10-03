@@ -213,7 +213,7 @@ export function dependencies(
     setRelayRouting: vi.fn(async () => {}),
     getHost: vi.fn(() => host),
     saveHost: vi.fn(async () => {}),
-    directPath: 'lan',
+    directPath: () => 'lan',
     now: Date.now,
     randomBytes: (length) => new Uint8Array(length).fill(1),
     setTimer: defaultScheduleTimer,

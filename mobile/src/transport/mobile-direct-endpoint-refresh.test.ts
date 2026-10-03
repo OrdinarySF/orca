@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  HostDirectEndpointRefresh,
   mergeAdvertisedDirectEndpoints,
   refreshHostDirectEndpoints
 } from './mobile-direct-endpoint-refresh'
@@ -62,9 +63,7 @@ describe('mergeAdvertisedDirectEndpoints', () => {
   })
 
   it('keeps pair-time LAN when the desktop advertises nothing', () => {
-    expect(
-      mergeAdvertisedDirectEndpoints(host, { v: 1, selected: null, endpoints: [] })
-    ).toBe(host)
+    expect(mergeAdvertisedDirectEndpoints(host, { v: 1, selected: null, endpoints: [] })).toBe(host)
   })
 
   it('never grows the overlay past 16 entries', () => {
@@ -119,5 +118,35 @@ describe('refreshHostDirectEndpoints', () => {
     })
     expect(next.endpoint).toBe('ws://192.168.1.50:6768')
     expect(saveHost).toHaveBeenCalledWith(next)
+  })
+})
+
+describe('HostDirectEndpointRefresh', () => {
+  it('does not save a response that arrives after invalidate', async () => {
+    let resolveRequest: (response: RpcResponse) => void = () => {}
+    const rpc = {
+      sendRequest: vi.fn(
+        () =>
+          new Promise<RpcResponse>((resolve) => {
+            resolveRequest = resolve
+          })
+      )
+    } as unknown as RpcClient
+    const saveHost = vi.fn(async () => {})
+    const refresh = new HostDirectEndpointRefresh(saveHost)
+    const pending = refresh.apply(rpc, host)
+    refresh.invalidate()
+    resolveRequest({
+      id: 'rpc-1',
+      ok: true,
+      result: {
+        v: 1,
+        selected: { kind: 'lan', url: 'ws://192.168.1.50:6768' },
+        endpoints: [{ kind: 'lan', url: 'ws://192.168.1.50:6768' }]
+      },
+      _meta: { runtimeId: 'runtime-1' }
+    })
+    await expect(pending).resolves.toBe(host)
+    expect(saveHost).not.toHaveBeenCalled()
   })
 })

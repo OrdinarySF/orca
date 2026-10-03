@@ -33,10 +33,7 @@ export function mergeAdvertisedDirectEndpoints(
     })
   }
   const relay = (host.endpoints ?? []).filter(({ kind }) => kind === 'relay')
-  const endpoints = [
-    ...direct.slice(0, Math.max(0, OVERLAY_ENDPOINT_MAX - relay.length)),
-    ...relay
-  ]
+  const endpoints = [...direct.slice(0, Math.max(0, OVERLAY_ENDPOINT_MAX - relay.length)), ...relay]
   if (endpoints.length === 0) {
     return { ...host, endpoint: selectedUrl, endpoints: undefined }
   }
@@ -81,14 +78,27 @@ function hostDirectStateEqual(left: HostProfile, right: HostProfile): boolean {
 
 export class HostDirectEndpointRefresh {
   private readonly unsupported = { current: false }
+  private epoch = 0
 
   constructor(private readonly saveHost: (host: HostProfile) => Promise<void>) {}
 
+  // Drops a refresh that has not saved yet. A save already in flight is the host
+  // store's job: it must not insert a row the user removed.
+  invalidate(): void {
+    this.epoch += 1
+  }
+
   apply(client: RpcClient, host: HostProfile): Promise<HostProfile> {
+    const epoch = this.epoch
     return refreshHostDirectEndpoints({
       client,
       host,
-      saveHost: this.saveHost,
+      saveHost: async (next) => {
+        if (epoch !== this.epoch) {
+          throw new Error('direct endpoint refresh cancelled')
+        }
+        await this.saveHost(next)
+      },
       unsupported: this.unsupported
     })
   }

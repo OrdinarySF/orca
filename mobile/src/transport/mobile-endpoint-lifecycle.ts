@@ -9,7 +9,8 @@ import {
   readMobileRelayCredentialBundle,
   writeMobileRelayCredentialBundle
 } from './mobile-relay-credential-bundle'
-import { savePairedHost, setRelayRouting } from './host-store'
+import { saveRefreshedDirectEndpoint } from './host-direct-endpoint-store'
+import { setRelayRouting } from './host-store'
 import { upgradeDirectMobileRelay } from './mobile-relay-direct-upgrade'
 import { directPathForEndpoint } from './mobile-direct-endpoint-probe'
 import { MobileRelayDirectUpgradeController } from './mobile-relay-direct-upgrade-controller'
@@ -94,7 +95,9 @@ function createSupervisor(
   return new MobileEndpointSupervisor(logical, host.id, relay, {
     openDirect: () =>
       connect(currentHost.endpoint, currentHost.deviceToken, currentHost.publicKeyB64, { onLog }),
-    directPath: directPathForEndpoint(host.endpoint),
+    // Why: the dial reads currentHost at call time. A LAN to Tailscale refresh must
+    // migrate under that same attempt, not the endpoint captured when this supervisor was created.
+    directPath: () => directPathForEndpoint(currentHost.endpoint),
     openRelay: (relay, credential, confirmReqId, onHostCloseReason) =>
       connectMobileRelayRpcSession({
         relay,
@@ -112,8 +115,10 @@ function createSupervisor(
     setRelayRouting,
     getHost: () => currentHost,
     saveHost: async (next) => {
+      // Why: a rejected save must leave later dials on the stored endpoint. Assigning
+      // first made openDirect use next.endpoint while storage still had the old one.
+      await saveRefreshedDirectEndpoint(next)
       currentHost = next
-      await savePairedHost(next)
     },
     onLog,
     now: Date.now,
